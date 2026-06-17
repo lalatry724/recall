@@ -1,12 +1,12 @@
-# recall
+# agtLog
 
 > Turn your Claude Code conversation transcripts into human-readable HTML / text — current session or your entire history — with three views (full / simple / talk), local timestamps, and optional auto-archiving on every session end.
 
 *(繁體中文說明見下方 [中文](#中文說明))*
 
-`recall` is a [Claude Code](https://claude.com/claude-code) skill. It reads the JSONL transcripts Claude Code already stores under `~/.claude/projects/` and renders them as clean, browsable HTML (or plain text). The transcript is **more complete than the on-screen view** — the terminal collapses long tool output; the JSONL keeps it all.
+`agtLog` is a [Claude Code](https://claude.com/claude-code) skill. It reads the JSONL transcripts Claude Code already stores under `~/.claude/projects/` and renders them as clean, browsable HTML (or plain text). The transcript is **more complete than the on-screen view** — the terminal collapses long tool output; the JSONL keeps it all.
 
-It is a **thin wrapper over deterministic Python**: the rendering core (`render_core.py`) and CLI (`recall.py`) are pure standard-library Python with **zero AI token cost**. The skill layer only tells the agent which command to run.
+It is a **thin wrapper over deterministic Python**: the rendering core (`render_core.py`) and CLI (`agtLog.py`) are pure standard-library Python with **zero AI token cost**. The skill layer only tells the agent which command to run.
 
 ## What it does / does not do
 
@@ -25,47 +25,47 @@ Requires Python 3 (standard library only — no third-party packages). Works on 
 
 1. Copy this folder into your skills directory:
    ```bash
-   cp -r recall ~/.claude/skills/recall
+   cp -r agtLog ~/.claude/skills/agtLog
    ```
 2. (Optional) Enable auto-archiving hooks — see [Auto-archive](#auto-archive):
    ```bash
-   bash ~/.claude/skills/recall/install.sh
+   bash ~/.claude/skills/agtLog/install.sh
    ```
    This backs up `~/.claude/settings.json`, then **appends** the SessionStart/SessionEnd hooks idempotently (existing hooks untouched).
 
 Run the CLI directly without installing it as a skill:
 ```bash
-python3 path/to/scripts/recall.py --scope all
+python3 path/to/scripts/agtLog.py --scope all
 ```
 
 ### Windows
 
 1. Copy this folder into your skills directory (PowerShell):
    ```powershell
-   Copy-Item -Recurse -Force recall "$env:USERPROFILE\.claude\skills\recall"
+   Copy-Item -Recurse -Force agtLog "$env:USERPROFILE\.claude\skills\agtLog"
    ```
 2. (Optional) Enable auto-archiving hooks. `install.sh` is a bash script, so run it from **Git Bash** (ships with Git for Windows):
    ```bash
-   bash ~/.claude/skills/recall/install.sh
+   bash ~/.claude/skills/agtLog/install.sh
    ```
    It detects that `python` (not `python3`) is the working launcher and writes the hook commands accordingly. If you have no bash, register the two hooks in `%USERPROFILE%\.claude\settings.json` manually, using `python "<skill>/scripts/<hook>.py"`.
 
 Run the CLI directly without installing it as a skill:
 ```powershell
-python path\to\scripts\recall.py --scope all
+python path\to\scripts\agtLog.py --scope all
 ```
 
 | | macOS / Linux | Windows |
 |---|---|---|
 | Python command | `python3` | `python` (bare `python3` is a no-op Store stub) |
-| Copy folder | `cp -r recall ~/.claude/skills/recall` | `Copy-Item -Recurse -Force recall "$env:USERPROFILE\.claude\skills\recall"` |
+| Copy folder | `cp -r agtLog ~/.claude/skills/agtLog` | `Copy-Item -Recurse -Force agtLog "$env:USERPROFILE\.claude\skills\agtLog"` |
 | Run `install.sh` | native shell | **Git Bash** required |
 | Hook command written | `python3 "…"` | `python "…"` (auto-detected) |
 
 ## Usage
 
 ```bash
-python3 scripts/recall.py [options]
+python3 scripts/agtLog.py [options]
 ```
 
 | Option | Values (default) | Meaning |
@@ -84,12 +84,12 @@ python3 scripts/recall.py [options]
 
 Common:
 ```bash
-python3 scripts/recall.py                       # current session → recall-talk.html (talk, default)
-python3 scripts/recall.py --view simple         # conversation + one-line tool summaries
-python3 scripts/recall.py --view full           # verbatim + tool bodies + results
-python3 scripts/recall.py --scope all           # all history → ./session-export/ + index.html
-python3 scripts/recall.py --scope init-all      # backfill all history (talk) into the archive + index.html
-python3 scripts/recall.py --scope init-all --views simple,talk,full   # backfill all three views
+python3 scripts/agtLog.py                       # current session → agtLog-talk.html (talk, default)
+python3 scripts/agtLog.py --view simple         # conversation + one-line tool summaries
+python3 scripts/agtLog.py --view full           # verbatim + tool bodies + results
+python3 scripts/agtLog.py --scope all           # all history → ./session-export/ + index.html
+python3 scripts/agtLog.py --scope init-all      # backfill all history (talk) into the archive + index.html
+python3 scripts/agtLog.py --scope init-all --views simple,talk,full   # backfill all three views
 ```
 
 Output is a JSON status line on stdout (`status == "ok"` on success, with `output`/`turns`).
@@ -132,23 +132,23 @@ The SessionEnd hook only fires **when a session ends** — it never re-scans his
 
 | Goal | Command | Behavior |
 |------|---------|----------|
-| **Backfill** missing sessions | `recall.py --scope init-all` | Scans all history; writes only missing files, **skips existing** (idempotent — re-run anytime). |
-| **Rebuild** all (e.g. after a render change) | `recall.py --scope init-all --force` | Rewrites every file, ignoring what exists. |
-| Re-archive one session | `recall.py --transcript <jsonl> --output <path>` | Always overwrites that one file. |
+| **Backfill** missing sessions | `agtLog.py --scope init-all` | Scans all history; writes only missing files, **skips existing** (idempotent — re-run anytime). |
+| **Rebuild** all (e.g. after a render change) | `agtLog.py --scope init-all --force` | Rewrites every file, ignoring what exists. |
+| Re-archive one session | `agtLog.py --transcript <jsonl> --output <path>` | Always overwrites that one file. |
 
 Files are keyed by `<date>_<time>_<slug>_<id8>`, so `init-all` matches by name and skips duplicates. There's no automatic periodic backfill — run `init-all` manually (or wire it into your own cron/hook) to catch up.
 
 ## Repository layout
 
 ```
-recall/
+agtLog/
 ├── README.md             this file
 ├── LICENSE               MIT
 ├── SKILL.md              skill manifest (how the agent invokes it)
 ├── archive.conf.json     auto-archive config
 ├── install.sh            register hooks into settings.json (backup → idempotent append → verify)
 ├── scripts/
-│   ├── recall.py            single CLI entry point
+│   ├── agtLog.py            single CLI entry point
 │   ├── render_core.py            the one rendering core (single source of truth)
 │   ├── session_end_archive.py    SessionEnd hook
 │   └── session_start_reminder.py SessionStart hook
@@ -169,7 +169,7 @@ This project follows [Semantic Versioning](https://semver.org/). Newest first. F
 
 ### 1.2.0 — 2026-06-17 · Flat archive, talk by default
 - **Flat archive layout** — dropped the per-view subfolders: archives now land directly at `~/.claude/session-archive/<project>/` instead of `<project>/<view>/`.
-- **Talk is the default view** — both the SessionEnd hook and `recall.py` (current / init-all) now produce only the **talk** view by default (`--view` default `simple`→`talk`, `archive.conf.json` `views` `["simple","talk"]`→`["talk"]`).
+- **Talk is the default view** — both the SessionEnd hook and `agtLog.py` (current / init-all) now produce only the **talk** view by default (`--view` default `simple`→`talk`, `archive.conf.json` `views` `["simple","talk"]`→`["talk"]`).
 - **Multiple views still supported, flat** — when more than one view is produced, files are disambiguated by suffix: `<base>.html` (talk), `<base>.simple.html`, `<base>.full.html`. Use `--view simple|full` (current/all), `--views simple,talk,full` (init-all), or `archive.conf.json` `views`.
 - **Existing archives migrated** — old `<project>/simple/` + `<project>/talk/` trees flattened (simple dropped, talk files moved up), index rebuilt.
 
@@ -204,9 +204,9 @@ MIT — see [LICENSE](LICENSE).
 
 ## 中文說明
 
-`recall` 是一個 [Claude Code](https://claude.com/claude-code) 技能（skill）。它讀取 Claude Code 自存在 `~/.claude/projects/` 下的 JSONL transcript，還原成乾淨可瀏覽的 HTML（或純文字）。transcript **比畫面更完整**——終端機會摺疊長輸出，JSONL 全留著。
+`agtLog` 是一個 [Claude Code](https://claude.com/claude-code) 技能（skill）。它讀取 Claude Code 自存在 `~/.claude/projects/` 下的 JSONL transcript，還原成乾淨可瀏覽的 HTML（或純文字）。transcript **比畫面更完整**——終端機會摺疊長輸出，JSONL 全留著。
 
-它是**薄包裝、核心是免 token 程式**：渲染核心 `render_core.py` 與 CLI `recall.py` 是純標準庫 Python，**零 AI token**；技能層只告訴 agent 跑哪支指令。
+它是**薄包裝、核心是免 token 程式**：渲染核心 `render_core.py` 與 CLI `agtLog.py` 是純標準庫 Python，**零 AI token**；技能層只告訴 agent 跑哪支指令。
 
 ### 能做 / 不能做
 - ✅ 把對話**所有文字**（user / assistant / 工具呼叫 / 工具結果）還原成 HTML/txt。
@@ -221,16 +221,16 @@ MIT — see [LICENSE](LICENSE).
 
 **mac / Linux：**
 ```bash
-cp -r recall ~/.claude/skills/recall
-bash ~/.claude/skills/recall/install.sh   # 選用：啟用自動歸檔 hook
+cp -r agtLog ~/.claude/skills/agtLog
+bash ~/.claude/skills/agtLog/install.sh   # 選用：啟用自動歸檔 hook
 ```
 
 **Windows（PowerShell 複製 + Git Bash 跑 install）：**
 ```powershell
-Copy-Item -Recurse -Force recall "$env:USERPROFILE\.claude\skills\recall"
+Copy-Item -Recurse -Force agtLog "$env:USERPROFILE\.claude\skills\agtLog"
 ```
 ```bash
-bash ~/.claude/skills/recall/install.sh   # 在 Git Bash 內跑；自動用 python 而非 python3
+bash ~/.claude/skills/agtLog/install.sh   # 在 Git Bash 內跑；自動用 python 而非 python3
 ```
 沒有 bash → 手動把兩個 hook 寫進 `%USERPROFILE%\.claude\settings.json`，指令用 `python "<skill>/scripts/<hook>.py"`。
 
@@ -252,8 +252,8 @@ bash ~/.claude/skills/recall/install.sh   # 在 Git Bash 內跑；自動用 pyth
 
 ### init_all（補建全部歷史）
 ```bash
-python3 scripts/recall.py --scope init-all                          # 預設只補 talk
-python3 scripts/recall.py --scope init-all --views simple,talk,full # 補三視圖
+python3 scripts/agtLog.py --scope init-all                          # 預設只補 talk
+python3 scripts/agtLog.py --scope init-all --views simple,talk,full # 補三視圖
 ```
 把全部歷史補建到 `~/.claude/session-archive/<專案>/`（扁平、預設 talk），**與自動歸檔合一**（過去+未來同一棵），並產頂層 `index.html`。多視圖以檔名後綴區分（`<base>.html`／`<base>.simple.html`／`<base>.full.html`）。**冪等**：已存在跳過（`--force` 強制重建），隨時重跑刷新索引。
 
@@ -265,15 +265,15 @@ SessionEnd hook **只在 session 結束當下產**，不會自己回掃歷史，
 
 | 目的 | 指令 | 行為 |
 |------|------|------|
-| **補產**漏掉的 session | `recall.py --scope init-all` | 掃全歷史，只寫缺檔、**已存在跳過**（冪等，可隨時重跑） |
-| **重建**全部（改了 render 邏輯後） | `recall.py --scope init-all --force` | 忽略既有，全部重寫 |
-| 重產單一 session | `recall.py --transcript <jsonl> --output <path>` | 直接覆寫該檔 |
+| **補產**漏掉的 session | `agtLog.py --scope init-all` | 掃全歷史，只寫缺檔、**已存在跳過**（冪等，可隨時重跑） |
+| **重建**全部（改了 render 邏輯後） | `agtLog.py --scope init-all --force` | 忽略既有，全部重寫 |
+| 重產單一 session | `agtLog.py --transcript <jsonl> --output <path>` | 直接覆寫該檔 |
 
 檔名以 `<date>_<time>_<slug>_<id8>` 為鍵，故 `init-all` 靠檔名比對跳過重複。**無自動定期補產**——需手動跑 `init-all`（或自行接 cron/hook）來補上。
 
 ### 變更紀錄
 採[語意化版號](https://semver.org/)，完整內容見上方 [Changelog](#changelog) 與 [`version.md`](version.md)。
-- **1.2.0（2026-06-17）扁平歸檔、預設 talk**：歸檔結構去掉 view 子資料夾（改 `<專案>/` 直放）、SessionEnd 與 recall.py 預設只產 talk（`--view` 預設改 talk、conf `views` 改 `["talk"]`）、多視圖以檔名後綴 `.simple`/`.full` 區分、既有歸檔一次性扁平化並重建 index。
+- **1.2.0（2026-06-17）扁平歸檔、預設 talk**：歸檔結構去掉 view 子資料夾（改 `<專案>/` 直放）、SessionEnd 與 agtLog.py 預設只產 talk（`--view` 預設改 talk、conf `views` 改 `["talk"]`）、多視圖以檔名後綴 `.simple`/`.full` 區分、既有歸檔一次性扁平化並重建 index。
 - **1.1.0（2026-06-16）可讀性與跨平台**：slash command 還原成 `/cmd args` 並上色（full 保留原始標籤）、markdown 表格轉真 `<table>`（full 逐字）、user/assistant 整塊深藍/深綠底色區分、檔名加首則訊息時間 `HH-MM-SS`、README 拆 mac/Windows 安裝差異 + `install.sh` 自動偵測 `python`/`python3`。
 - **1.0.0（2026-06-15）首次公開**：三視圖（full/simple/talk）、scope current/all/init-all、init_all 補建全部歷史（冪等 + index）、simple/talk 分資料夾版面、SessionEnd/SessionStart 自動歸檔 hook（install.sh 安裝）、單一渲染核心 render_core.py。
 

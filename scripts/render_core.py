@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""render_core: recall skill 的唯一渲染核心（單一事實來源）。
+"""render_core: agtLog skill 的唯一渲染核心（單一事實來源）。
 
-職責：jsonl → 結構化 turns → txt/html 文字。所有 CLI 入口（recall.py 與三支
+職責：jsonl → 結構化 turns → txt/html 文字。所有 CLI 入口（agtLog.py 與三支
 舊轉接 script）都呼叫這裡，避免邏輯重複。
 
 三種視圖 view：
@@ -383,7 +383,7 @@ def render(transcript: Path, view: str, fmt: str, show_ts: bool = True,
     """一站式：transcript → (body, turn 數)。"""
     turns = collect(transcript, view, include_thinking, max_result_chars, arg_width)
     if fmt == "html":
-        body = emit_html(turns, view, title or f"recall ({view}) — {transcript.name}", show_ts)
+        body = emit_html(turns, view, title or f"agtLog ({view}) — {transcript.name}", show_ts)
     else:
         body = emit_txt(turns, view, show_ts)
     return body, len(turns)

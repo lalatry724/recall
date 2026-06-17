@@ -1,15 +1,15 @@
 ---
-name: recall
+name: agtLog
 description: Restore Claude Code conversation transcripts into human-readable HTML/text — current session or all historical sessions — with three views (full verbatim / simple one-line tools / talk pure conversation), local timestamps, and path highlighting. Equivalent to saving the on-screen conversation 1:1 for review and context.
 userInvocable: true
-triggers: recall, save conversation, save transcript, export all sessions, export conversation, dump transcript, /recall
+triggers: agtLog, save conversation, save transcript, export all sessions, export conversation, dump transcript, recall, /agtLog, /recall
 pattern: tool-wrapper
 ---
 
-# Skill: recall (Tool Wrapper)
+# Skill: agtLog (Tool Wrapper)
 
 > Wraps "locate transcript JSONL → restore → write file" so the agent never hand-parses JSONL.
-> All rendering goes through `scripts/render_core.py` (single source of truth); the CLI entry is `scripts/recall.py`.
+> All rendering goes through `scripts/render_core.py` (single source of truth); the CLI entry is `scripts/agtLog.py`.
 
 ## Capability boundary
 
@@ -18,14 +18,14 @@ pattern: tool-wrapper
 
 ## Core rules
 
-1. **Never let the agent read JSONL and hand-parse it** — always go through `scripts/recall.py`. Encoding / path / block / meta traps are sealed inside.
+1. **Never let the agent read JSONL and hand-parse it** — always go through `scripts/agtLog.py`. Encoding / path / block / meta traps are sealed inside.
 2. On wrapper failure, read the JSON `error` field; **do not switch to an ad-hoc workaround**.
 3. Done = stdout JSON `status == "ok"`; report `output`/`turns` to the user.
 
-## Main entry: `scripts/recall.py`
+## Main entry: `scripts/agtLog.py`
 
 ```
-python3 scripts/recall.py [options]
+python3 scripts/agtLog.py [options]
 ```
 
 | Option | Values (default) | Meaning |
@@ -44,12 +44,12 @@ python3 scripts/recall.py [options]
 
 Common:
 ```bash
-python3 scripts/recall.py                       # current session → recall-talk.html (talk, default)
-python3 scripts/recall.py --view simple         # conversation + one-line tool summaries
-python3 scripts/recall.py --view full           # verbatim + tool bodies
-python3 scripts/recall.py --scope all           # all history → ./session-export/ + index.html
-python3 scripts/recall.py --scope init-all      # backfill all history (talk) into the archive + index.html
-python3 scripts/recall.py --scope init-all --views simple,talk,full   # backfill all three views
+python3 scripts/agtLog.py                       # current session → agtLog-talk.html (talk, default)
+python3 scripts/agtLog.py --view simple         # conversation + one-line tool summaries
+python3 scripts/agtLog.py --view full           # verbatim + tool bodies
+python3 scripts/agtLog.py --scope all           # all history → ./session-export/ + index.html
+python3 scripts/agtLog.py --scope init-all      # backfill all history (talk) into the archive + index.html
+python3 scripts/agtLog.py --scope init-all --views simple,talk,full   # backfill all three views
 ```
 
 ### Choosing a view
@@ -65,11 +65,11 @@ To produce **simple / full / all** views: pass `--view simple` or `--view full` 
 
 ## Architecture: thin wrapper, token-free core
 
-- **Execution layer** (`render_core.py` + `recall.py`): pure Python, deterministic, **zero AI token**.
+- **Execution layer** (`render_core.py` + `agtLog.py`): pure Python, deterministic, **zero AI token**.
 - **Invocation layer** (this SKILL.md): only tells the agent which script + args to run.
 - Fully skippable by the agent — run the CLI directly:
   ```bash
-  python3 ~/.claude/skills/recall/scripts/recall.py --scope all
+  python3 ~/.claude/skills/agtLog/scripts/agtLog.py --scope all
   ```
 
 ## Auto-archive (SessionEnd / SessionStart hooks)
@@ -85,9 +85,9 @@ The SessionEnd hook only fires **at the moment a session ends** — it never re-
 
 | Goal | Command | Behavior |
 |------|---------|----------|
-| **Backfill** missing sessions | `recall.py --scope init-all` | Scans all `~/.claude/projects/*/*.jsonl`; writes only files that don't exist yet, **skips existing** (idempotent — safe to re-run anytime). |
-| **Rebuild** everything (e.g. after a render change) | `recall.py --scope init-all --force` | Ignores existing files and rewrites all of them. |
-| Re-archive one current session | `recall.py --transcript <jsonl> --output <path>` | Always overwrites that one file. |
+| **Backfill** missing sessions | `agtLog.py --scope init-all` | Scans all `~/.claude/projects/*/*.jsonl`; writes only files that don't exist yet, **skips existing** (idempotent — safe to re-run anytime). |
+| **Rebuild** everything (e.g. after a render change) | `agtLog.py --scope init-all --force` | Ignores existing files and rewrites all of them. |
+| Re-archive one current session | `agtLog.py --transcript <jsonl> --output <path>` | Always overwrites that one file. |
 
 Note: each archive file is keyed by `<date>_<time>_<slug>_<id8>`, so re-running `init-all` matches existing files by name and skips them. There is no automatic periodic backfill — run `init-all` manually (or wire it into your own cron/hook) to catch up.
 

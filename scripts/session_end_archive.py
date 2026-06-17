@@ -5,7 +5,7 @@
 設計原則：**fail-open**，任何錯誤都安靜 exit 0，絕不阻擋 session 結束。
 
 payload 取用：transcript_path（缺則用 cwd+session_id 推導）、cwd、session_id。
-設定檔（選用）：~/.claude/skills/recall/archive.conf.json
+設定檔（選用）：~/.claude/skills/agtLog/archive.conf.json
   { "enabled": true, "archive_dir": "~/.claude/session-archive",
     "views": ["talk"], "format": "html", "timestamps": true }
 扁平結構：<archive>/<專案>/<date>_<slug>_<id8>[.<view>].<ext>（預設只產 talk，不加後綴、不分子資料夾）。
@@ -50,7 +50,7 @@ def main() -> int:
         return 0
 
     import render_core as rc
-    from recall import run_current, _session_meta, _archive_base, archive_filename
+    from agtLog import run_current, _session_meta, _archive_base, archive_filename
 
     cwd = payload.get("cwd") or ""
     session_id = payload.get("session_id") or ""

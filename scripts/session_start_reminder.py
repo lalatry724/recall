@@ -36,8 +36,8 @@ def main() -> int:
         archive = Path(conf["archive_dir"]).expanduser()
         n = len(list(archive.glob("**/*.html"))) if archive.is_dir() else 0
         loc = conf["archive_dir"]
-        print(f"[recall] 對話歸檔已啟用：結束時自動存 talk 版到 {loc}/<專案>/（已存 {n} 檔）。"
-              f"補建全部歷史：python3 ~/.claude/skills/recall/scripts/recall.py --scope init-all（產 index.html）。"
+        print(f"[agtLog] 對話歸檔已啟用：結束時自動存 talk 版到 {loc}/<專案>/（已存 {n} 檔）。"
+              f"補建全部歷史：python3 ~/.claude/skills/agtLog/scripts/agtLog.py --scope init-all（產 index.html）。"
               f"要 simple/full/全部版本：加 --view simple｜--view full，或 init-all 加 --views simple,talk,full")
     except Exception:
         return 0

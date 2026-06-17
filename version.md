@@ -1,14 +1,14 @@
-# Version History — recall
+# Version History — agtLog
 
-本檔記錄 recall skill 的所有版本異動。最新在上。
+本檔記錄 agtLog skill 的所有版本異動。最新在上。
 
 ## v1.2.0 — 2026-06-17
 
 歸檔結構扁平化 + 預設單一 talk 版本。
 
 - **歸檔結構扁平化**：由 `<archive>/<專案>/<view>/<檔>` 改為 `<archive>/<專案>/<檔>`，移除多餘的 `simple/`、`talk/` view 子資料夾。
-- **預設只產 talk**：SessionEnd hook 與 `recall.py`（current / init-all）一律預設僅產出 talk 版本（最乾淨的純對話），不再同時產 simple。
-  - `recall.py --view` 預設值 `simple` → `talk`。
+- **預設只產 talk**：SessionEnd hook 與 `agtLog.py`（current / init-all）一律預設僅產出 talk 版本（最乾淨的純對話），不再同時產 simple。
+  - `agtLog.py --view` 預設值 `simple` → `talk`。
   - `archive.conf.json` 的 `views` 預設 `["simple","talk"]` → `["talk"]`。
 - **多 view 仍可選**：要同時產 simple/full 時，以檔名後綴區分、仍維持扁平：
   - talk → `<base>.html`（預設、無後綴）
@@ -26,5 +26,5 @@
 
 ## v1.0.0 — 2026-06-16
 
-- 首版：recall — Claude Code transcript exporter skill。
+- 首版：agtLog — Claude Code transcript exporter skill。
 - 將對話 transcript JSONL 還原成人可讀 HTML/txt，三種 view（full / simple / talk）、本地時間戳、路徑高亮。

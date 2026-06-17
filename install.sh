@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — register recall's SessionStart/SessionEnd hooks into
+# install.sh — register agtLog's SessionStart/SessionEnd hooks into
 # ~/.claude/settings.json. Safe by design: backup -> idempotent append -> verify.
 # Existing hooks are never touched; re-running is a no-op once installed.
 set -euo pipefail
@@ -19,7 +19,7 @@ else
   exit 1
 fi
 
-echo "recall installer"
+echo "agtLog installer"
 echo "  settings : $SETTINGS"
 echo "  skill dir: $SKILL_DIR"
 echo "  python   : $PY"
@@ -29,7 +29,7 @@ mkdir -p "$(dirname "$SETTINGS")"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 
 # 1) backup (timestamped, never overwrites an existing backup of the same run)
-BAK="$SETTINGS.bak.recall.$(date +%Y%m%d%H%M%S)"
+BAK="$SETTINGS.bak.agtLog.$(date +%Y%m%d%H%M%S)"
 cp "$SETTINGS" "$BAK"
 echo "  backup   : $BAK"
 

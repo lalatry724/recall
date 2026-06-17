@@ -1,8 +1,9 @@
 {
-  "_comment": "觸發評估查詢：should_trigger:true 應召喚 recall；false 為近似但不該觸發。",
-  "skill_name": "recall",
+  "_comment": "觸發評估查詢：should_trigger:true 應召喚 agtLog；false 為近似但不該觸發。recall 為保留別名。",
+  "skill_name": "agtLog",
   "queries": [
-    { "query": "把這次對話的畫面文字全部存到 recall.txt", "should_trigger": true, "note": "明確要求落檔" },
+    { "query": "/agtLog", "should_trigger": true, "note": "slash 主名直呼" },
+    { "query": "把這次對話的畫面文字全部存到 recall.txt", "should_trigger": true, "note": "明確要求落檔（recall 別名）" },
     { "query": "存畫面", "should_trigger": true, "note": "短指令" },
     { "query": "幫我把本次 claude 的所有文字存檔", "should_trigger": true, "note": "另一措辭" },
     { "query": "存一份這次的逐字稿", "should_trigger": true, "note": "逐字稿同義" },

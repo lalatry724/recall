@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""recall: recall skill 的單一 CLI 入口。
+"""agtLog: agtLog skill 的單一 CLI 入口。
 
 把 Claude Code 對話 transcript 轉成人可讀檔，渲染全走 render_core（單一事實來源）。
 
@@ -40,7 +40,7 @@ EXT = {"html": "html", "txt": "txt"}
 
 def _default_name(view: str, fmt: str) -> str:
     suffix = "" if view == "full" else f"-{view}"
-    return f"recall{suffix}.{EXT[fmt]}"
+    return f"agtLog{suffix}.{EXT[fmt]}"
 
 
 def run_current(cwd, transcript, view, fmt, show_ts, include_thinking, max_result_chars, arg_width, output) -> dict:

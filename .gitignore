@@ -3,10 +3,10 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# recall runtime output
+# agtLog runtime output
 session-export/
-recall*.html
-recall*.txt
+agtLog*.html
+agtLog*.txt
 
 # local dev artifacts (auto-generated, not part of the public skill)
 devlog.md
