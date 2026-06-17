@@ -2,6 +2,15 @@
 
 本檔記錄 agtLog skill 的所有版本異動。最新在上。
 
+## v1.3.0 — 2026-06-17
+
+skill 改名 `recall` → `agtLog`。
+
+- **全面改名**：skill name、主程式 `scripts/recall.py` → `scripts/agtLog.py`（內部 `from recall import` → `from agtLog import`）、輸出檔名前綴 `recall*` → `agtLog*`、文件/路徑全數更新。
+- **保留 `recall` 別名**：triggers 仍含 `recall`、`/recall`，召喚率不退步；主名為 `agtLog`、`/agtLog`。
+- **部署端同步**：`~/.claude/skills/recall/` → `~/.claude/skills/agtLog/`，`settings.json` 兩個 hook 路徑就地更新（無重複註冊）。
+- **remote**：`github.com/lalatry724/recall` → `github.com/lalatry724/agtLog`。
+
 ## v1.2.0 — 2026-06-17
 
 歸檔結構扁平化 + 預設單一 talk 版本。

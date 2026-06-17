@@ -12,6 +12,7 @@ agtLog*.txt
 devlog.md
 userChatLog.md
 .gemini/
+.claude/
 _internal/
 
 # OS
