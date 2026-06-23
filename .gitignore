@@ -11,6 +11,7 @@ agtLog*.txt
 # local dev artifacts (auto-generated, not part of the public skill)
 devlog.md
 userChatLog.md
+user-work-flow-*.md
 .gemini/
 .claude/
 _internal/
