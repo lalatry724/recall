@@ -50,6 +50,7 @@ def main() -> int:
         return 0
 
     import render_core as rc
+    import catalog
     from agtLog import run_current, _session_meta, _archive_base, archive_filename
 
     cwd = payload.get("cwd") or ""
@@ -74,13 +75,28 @@ def main() -> int:
         fmt = conf.get("format", "html")
         ext = "html" if fmt == "html" else "txt"
         archive_root = Path(conf["archive_dir"]).expanduser()
-        base = _archive_base(meta["start"], meta["first_prompt"], transcript.stem)
         archive = archive_root / proj                         # 扁平：<archive>/<專案>/
+        cat = catalog.load(archive)
+        if catalog.is_blacklisted(cat, transcript.stem):      # 黑名單 → 不產
+            return 0
+        base = _archive_base(meta["start"], meta["first_prompt"], transcript.stem)
         archive.mkdir(parents=True, exist_ok=True)
+        view_rels: dict = {}
+        turns_seen = 0
+        total_bytes = 0
         for view in conf.get("views", ["talk"]):  # 預設僅 talk；多 view 以檔名後綴區分
-            out = archive / archive_filename(base, view, ext)
-            run_current(cwd or str(SK), str(transcript), view, fmt,
-                        conf.get("timestamps", True), False, 0, 80, str(out))
+            fname = archive_filename(base, view, ext)
+            r = run_current(cwd or str(SK), str(transcript), view, fmt,
+                            conf.get("timestamps", True), False, 0, 80, str(archive / fname))
+            if isinstance(r, dict) and r.get("status") == "ok":
+                view_rels[view] = fname
+                turns_seen = max(turns_seen, r.get("turns", 0))
+                total_bytes += r.get("bytes", 0)
+        if view_rels:
+            catalog.record_session(cat, transcript.stem, views=view_rels, turns=turns_seen,
+                                   bytes_=total_bytes, summary=meta["first_prompt"],
+                                   start=meta["start"], end=meta["end"] or "")
+            catalog.save(archive, cat)
     except Exception:
         return 0  # 渲染/寫檔出錯 → 放行，不擾 session 結束
     return 0

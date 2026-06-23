@@ -70,7 +70,7 @@ python3 scripts/agtLog.py [options]
 
 | Option | Values (default) | Meaning |
 |--------|------------------|---------|
-| `--scope` | **current** / all / init-all | Current session / all → `./session-export/` / all → `~/.claude/session-archive/<project>/` (+ index) |
+| `--scope` | **current** / all / init-all / tidy / reset | Current / all→`./session-export/` / init-all→archive (+index) / tidy→blacklist deleted / reset→clear a project's records |
 | `--view` | full / simple / **talk** | Verbatim+tools / tools as one-liners / pure conversation (default) |
 | `--views` | — | init-all only: comma list overriding conf, e.g. `simple,talk,full` |
 | `--format` | **html** / txt | Colored HTML by default |
@@ -78,6 +78,8 @@ python3 scripts/agtLog.py [options]
 | `--include-thinking` | off | Include thinking blocks in the `full` view |
 | `--include-subagents` | off | Include sub-agent transcripts (scope all / init-all) |
 | `--force` | off | init-all: rebuild existing archives (default is idempotent skip) |
+| `--project` | — | tidy/reset: limit to one archive project folder (required for reset) |
+| `--confirm` | off | tidy: proceed when blacklist candidates exceed the safety threshold (20) |
 | `--arg-width N` | 80 | Truncate tool args in `simple` |
 | `--max-result-chars N` | 0 | Truncate tool_result in `full` |
 | `--output` / `--output-dir` / `--transcript` / `--cwd` | — | Path overrides |
@@ -106,6 +108,25 @@ To get **simple / full / all** views: pass `--view simple` / `--view full` (curr
 
 - `--scope all` writes one chosen view into `./session-export/` in the current directory — a throwaway export.
 - `--scope init-all` backfills **all history** into `~/.claude/session-archive/<project>/` (flat, talk by default; `--views` to add more), **merged with the auto-archive tree** so past and future conversations live together. Multiple views are disambiguated by filename suffix (`<base>.html` / `<base>.simple.html` / `<base>.full.html`). Idempotent (skips existing files; `--force` rebuilds). Re-run anytime to refresh the index and pick up new sessions.
+
+## Pruning the archive (tidy / reset)
+
+When archives pile up, you'll want to delete worthless conversations and have them **stay** gone. Each archive project folder keeps a `_catalog.json` recording every session ever produced (turns / bytes / summary / time) plus a `blacklist`. The workflow:
+
+1. Manually delete the worthless HTML files from `~/.claude/session-archive/<project>/`.
+2. Run **tidy** — it finds sessions whose files are now gone and blacklists them, so `init-all` and the SessionEnd hook never regenerate them.
+
+```bash
+python3 scripts/agtLog.py --scope tidy                    # scan all project folders
+python3 scripts/agtLog.py --scope tidy --project <name>   # one folder
+python3 scripts/agtLog.py --scope tidy --confirm          # override the >20 safety threshold
+python3 scripts/agtLog.py --scope reset --project <name>  # undo: clear blacklist → init-all regenerates
+```
+
+- Blacklisting happens **only on an explicit `tidy`** — `init-all` never auto-blacklists, so moving/renaming the archive folder can't silently wipe everything.
+- If one folder has more than 20 deletion candidates and you didn't pass `--confirm`, tidy only reports and writes nothing (safety against mass mis-deletion).
+- `reset` is the undo (clears a project's blacklist + stale records); `--project` is required so you can't wipe everything by accident.
+- The global `index.html` excludes blacklisted sessions and shows each session's file size.
 
 ## Auto-archive
 
@@ -143,6 +164,8 @@ Files are keyed by `<date>_<time>_<slug>_<id8>`, so `init-all` matches by name a
 ```
 agtLog/
 ├── README.md             this file
+├── CLAUDE.md             project map (dev entry: where to look, file roles, rules)
+├── COMMANDS.md           one-page command cheatsheet
 ├── LICENSE               MIT
 ├── SKILL.md              skill manifest (how the agent invokes it)
 ├── archive.conf.json     auto-archive config
@@ -150,6 +173,7 @@ agtLog/
 ├── scripts/
 │   ├── agtLog.py            single CLI entry point
 │   ├── render_core.py            the one rendering core (single source of truth)
+│   ├── catalog.py                archive state: per-project _catalog.json (manifest + blacklist)
 │   ├── session_end_archive.py    SessionEnd hook
 │   └── session_start_reminder.py SessionStart hook
 └── evals/
@@ -166,6 +190,12 @@ agtLog/
 ## Changelog
 
 This project follows [Semantic Versioning](https://semver.org/). Newest first. Full history: [`version.md`](version.md).
+
+### 1.4.0 — 2026-06-23 · Archive pruning (tidy / reset + blacklist)
+- **Per-project `_catalog.json`** — each archive project folder now keeps a record of every session ever produced (turns / bytes / summary / time) plus a `blacklist`. New shared module `scripts/catalog.py` (atomic state I/O, standard library only).
+- **`--scope tidy`** ("整理對話記錄") — compares the catalog against disk and blacklists sessions whose HTML you deleted, so `init-all` and the SessionEnd hook never regenerate them. Safety threshold: >20 candidates in one folder requires `--confirm`.
+- **`--scope reset --project <name>`** — undo: clears a project's blacklist + stale records so the next `init-all` regenerates (`--project` required).
+- **Blacklist honored** in both `init-all` (skips + reports `blacklisted` count) and the SessionEnd hook; the global `index.html` now excludes blacklisted sessions and shows file size.
 
 ### 1.2.0 — 2026-06-17 · Flat archive, talk by default
 - **Flat archive layout** — dropped the per-view subfolders: archives now land directly at `~/.claude/session-archive/<project>/` instead of `<project>/<view>/`.
@@ -273,6 +303,7 @@ SessionEnd hook **只在 session 結束當下產**，不會自己回掃歷史，
 
 ### 變更紀錄
 採[語意化版號](https://semver.org/)，完整內容見上方 [Changelog](#changelog) 與 [`version.md`](version.md)。
+- **1.4.0（2026-06-23）歸檔整理（tidy/reset＋黑名單）**：每專案 `_catalog.json`（記錄 turns/bytes/摘要/時間＋blacklist）、新增 `scripts/catalog.py`；`--scope tidy`（整理對話記錄）比對記錄 vs 磁碟把手刪的對話拉黑、>20 筆需 `--confirm`；`--scope reset --project <名>` 解黑重產；init-all 與 hook 認黑名單、全域 index 排除黑名單並顯示檔案大小。
 - **1.2.0（2026-06-17）扁平歸檔、預設 talk**：歸檔結構去掉 view 子資料夾（改 `<專案>/` 直放）、SessionEnd 與 agtLog.py 預設只產 talk（`--view` 預設改 talk、conf `views` 改 `["talk"]`）、多視圖以檔名後綴 `.simple`/`.full` 區分、既有歸檔一次性扁平化並重建 index。
 - **1.1.0（2026-06-16）可讀性與跨平台**：slash command 還原成 `/cmd args` 並上色（full 保留原始標籤）、markdown 表格轉真 `<table>`（full 逐字）、user/assistant 整塊深藍/深綠底色區分、檔名加首則訊息時間 `HH-MM-SS`、README 拆 mac/Windows 安裝差異 + `install.sh` 自動偵測 `python`/`python3`。
 - **1.0.0（2026-06-15）首次公開**：三視圖（full/simple/talk）、scope current/all/init-all、init_all 補建全部歷史（冪等 + index）、simple/talk 分資料夾版面、SessionEnd/SessionStart 自動歸檔 hook（install.sh 安裝）、單一渲染核心 render_core.py。

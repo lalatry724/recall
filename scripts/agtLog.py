@@ -34,6 +34,7 @@ except Exception:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import render_core as rc  # noqa: E402
+import catalog  # noqa: E402
 
 EXT = {"html": "html", "txt": "txt"}
 
@@ -41,6 +42,16 @@ EXT = {"html": "html", "txt": "txt"}
 def _default_name(view: str, fmt: str) -> str:
     suffix = "" if view == "full" else f"-{view}"
     return f"agtLog{suffix}.{EXT[fmt]}"
+
+
+def _human_size(n: int) -> str:
+    """位元組轉人類可讀（B/KB/MB）。"""
+    f = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if f < 1024 or unit == "GB":
+            return f"{int(f)} {unit}" if unit == "B" else f"{f:.1f} {unit}"
+        f /= 1024
+    return f"{n} B"
 
 
 def run_current(cwd, transcript, view, fmt, show_ts, include_thinking, max_result_chars, arg_width, output) -> dict:
@@ -239,16 +250,24 @@ def run_init_all(projects_dir, archive_dir, views, fmt, show_ts, include_subagen
 
     records: list[dict] = []
     errors: list[str] = []
-    written = skipped = 0
+    cats: dict[str, dict] = {}        # proj → catalog（同次 run 內快取，最後一次落盤）
+    written = skipped = blacklisted = 0
     for jl in jsonls:
         proj = jl.relative_to(projects).parts[0].lstrip("-")
         try:
+            cat = cats.get(proj)
+            if cat is None:
+                cat = cats[proj] = catalog.load(root / proj)
+            if catalog.is_blacklisted(cat, jl.stem):  # 黑名單 → 完全不產
+                blacklisted += 1
+                continue
             meta = _session_meta(jl)
             start = meta["start"] or datetime.fromtimestamp(jl.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
             title = meta["first_prompt"]
             base = _archive_base(start, title, jl.stem)
             view_rels: dict[str, str] = {}
             turns_seen = 0
+            total_bytes = 0
             for view in views:
                 # 一律 render（純 Python，便宜）以取得 turns；僅在缺檔/強制時才寫盤
                 body, turns = rc.render(jl, view, fmt, show_ts, False, 0, 80,
@@ -264,13 +283,24 @@ def run_init_all(projects_dir, archive_dir, views, fmt, show_ts, include_subagen
                     out_path.parent.mkdir(parents=True, exist_ok=True)
                     out_path.write_text(body, encoding="utf-8")
                     written += 1
+                total_bytes += len(body.encode("utf-8"))
                 view_rels[view] = f"{proj}/{fname}"
             if not view_rels:
                 continue
+            catalog.record_session(cat, jl.stem, views={v: Path(r).name for v, r in view_rels.items()},
+                                   turns=turns_seen, bytes_=total_bytes, summary=title,
+                                   start=start, end=meta["end"] or "")
             records.append({"project": proj, "start": start, "end": meta["end"],
-                            "turns": turns_seen, "title": title, "views": view_rels})
+                            "turns": turns_seen, "title": title, "views": view_rels,
+                            "bytes": total_bytes})
         except Exception as e:
             errors.append(f"{jl}: {type(e).__name__}: {e}")
+
+    for proj, cat in cats.items():        # 落盤各專案 catalog
+        try:
+            catalog.save(root / proj, cat)
+        except Exception as e:
+            errors.append(f"catalog {proj}: {type(e).__name__}: {e}")
 
     records.sort(key=lambda r: r["start"], reverse=True)
     records.sort(key=lambda r: r["project"])  # 依專案分組、組內新→舊
@@ -281,7 +311,7 @@ def run_init_all(projects_dir, archive_dir, views, fmt, show_ts, include_subagen
             "index": str(root / index_name), "views": views, "format": fmt,
             "timestamps": show_ts, "sessions_total": len(jsonls),
             "sessions_indexed": len(records), "written": written,
-            "skipped": skipped, "errors": errors}
+            "skipped": skipped, "blacklisted": blacklisted, "errors": errors}
 
 
 def _init_index(records: list[dict], views: list[str], fmt: str) -> str:
@@ -295,7 +325,8 @@ def _init_index(records: list[dict], views: list[str], fmt: str) -> str:
                 cur = r["project"]
                 lines.append(f"\n## {cur}\n")
             links = " ".join(f"[{v}]({r['views'][v]})" for v in views if v in r["views"])
-            lines.append(f"- [{_range(r)}] ({r['turns']} turns) {r['title'][:60]} — {links}")
+            size = _human_size(r.get("bytes", 0))
+            lines.append(f"- [{_range(r)}] ({r['turns']} turns · {size}) {r['title'][:60]} — {links}")
         return "\n".join(lines) + "\n"
 
     css = ("body{background:#1e1e2e;color:#cdd6f4;font:14px/1.6 ui-monospace,Menlo,Consolas,monospace;"
@@ -314,15 +345,71 @@ def _init_index(records: list[dict], views: list[str], fmt: str) -> str:
             out.append(f"<h2>{html.escape(cur)}</h2>")
         links = "".join(f"<a class='v' href='{html.escape(r['views'][v])}'>[{html.escape(v)}]</a>"
                         for v in views if v in r["views"])
+        size = _human_size(r.get("bytes", 0))
         out.append(f"<div class='row'><span class='t'>{html.escape(r['title'][:70])}</span>{links}"
-                   f"<span class='meta'> — {html.escape(_range(r))} · {r['turns']} turns</span></div>")
+                   f"<span class='meta'> — {html.escape(_range(r))} · {r['turns']} turns · {html.escape(size)}</span></div>")
     out.append("</body></html>")
     return "\n".join(out) + "\n"
 
 
+# ── tidy / reset：整理與重置歸檔記錄 ────────────────────────────────────────
+TIDY_THRESHOLD = 20  # 單專案單次拉黑候選 > 此數且無 --confirm → 只回報不寫
+
+
+def _archive_projects(root: Path, project: str | None) -> list[Path]:
+    """archive root 下、含 _catalog.json 的專案資料夾（或指定 --project）。"""
+    if project:
+        d = root / project
+        return [d] if d.is_dir() else []
+    return sorted(p for p in root.iterdir() if p.is_dir() and catalog.path_for(p).is_file())
+
+
+def run_tidy(archive_dir, project, confirm) -> dict:
+    """整理：比對記錄 vs 磁碟，把『曾產生、現已被手刪』的 session 拉黑。"""
+    root = Path(archive_dir).expanduser()
+    if not root.is_dir():
+        return {"status": "fail", "error": f"歸檔目錄不存在: {root}"}
+    results: list[dict] = []
+    total_blacklisted = 0
+    for d in _archive_projects(root, project):
+        cat = catalog.load(d)
+        deleted = catalog.find_deleted(cat, d)
+        candidates = [s for s in deleted if not catalog.is_blacklisted(cat, s)]
+        if not candidates:
+            continue
+        summaries = [cat["sessions"].get(s, {}).get("summary", s)[:60] for s in candidates]
+        if len(candidates) > TIDY_THRESHOLD and not confirm:
+            results.append({"project": d.name, "detected": len(candidates),
+                            "blacklisted": 0, "needs_confirm": True, "samples": summaries[:5]})
+            continue
+        added = catalog.add_to_blacklist(cat, candidates)
+        catalog.save(d, cat)
+        total_blacklisted += added
+        results.append({"project": d.name, "detected": len(candidates),
+                        "blacklisted": added, "needs_confirm": False, "samples": summaries[:5]})
+    return {"status": "ok", "scope": "tidy", "archive_dir": str(root),
+            "total_blacklisted": total_blacklisted, "projects": results}
+
+
+def run_reset(archive_dir, project) -> dict:
+    """重置：清空指定專案的黑名單 + 殘留記錄 → 下次 init-all 可重產。"""
+    root = Path(archive_dir).expanduser()
+    if not project:
+        return {"status": "fail", "error": "reset 必須指定 --project（防手滑全清）"}
+    d = root / project
+    if not d.is_dir():
+        avail = ", ".join(p.name for p in root.iterdir() if p.is_dir()) if root.is_dir() else ""
+        return {"status": "fail", "error": f"找不到專案資料夾: {d}。可用: {avail}"}
+    cat = catalog.load(d)
+    freed = catalog.clear(cat, d)
+    catalog.save(d, cat)
+    return {"status": "ok", "scope": "reset", "project": project,
+            "unblacklisted": freed, "hint": "跑 --scope init-all 重新生成"}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scope", choices=["current", "all", "init-all"], default="current")
+    ap.add_argument("--scope", choices=["current", "all", "init-all", "tidy", "reset"], default="current")
     ap.add_argument("--view", choices=["full", "simple", "talk"], default="talk")
     ap.add_argument("--views", help="init-all 專用：逗號分隔多 view 覆寫 conf（例 simple,talk,full）")
     ap.add_argument("--format", choices=["html", "txt"], default="html")
@@ -331,6 +418,8 @@ def main() -> int:
     ap.add_argument("--include-thinking", action="store_true")
     ap.add_argument("--include-subagents", action="store_true")
     ap.add_argument("--force", action="store_true", help="init-all：強制重建已存在的歸檔")
+    ap.add_argument("--project", help="tidy/reset：限定某專案歸檔資料夾名（reset 必填）")
+    ap.add_argument("--confirm", action="store_true", help="tidy：拉黑數超門檻時確認執行")
     ap.add_argument("--max-result-chars", type=int, default=0)
     ap.add_argument("--arg-width", type=int, default=80)
     ap.add_argument("--cwd", default=os.environ.get("PWD") or os.getcwd())
@@ -353,6 +442,13 @@ def main() -> int:
             views = conf.get("views", ["talk"])
         result = run_init_all(args.projects_dir, archive_dir, views, args.format,
                               args.timestamps, args.include_subagents, args.force)
+    elif args.scope in ("tidy", "reset"):
+        conf = _load_archive_conf()
+        archive_dir = args.output_dir or conf.get("archive_dir", "~/.claude/session-archive")
+        if args.scope == "tidy":
+            result = run_tidy(archive_dir, args.project, args.confirm)
+        else:
+            result = run_reset(archive_dir, args.project)
     else:
         result = run_current(args.cwd, args.transcript, args.view, args.format, args.timestamps,
                              args.include_thinking, args.max_result_chars, args.arg_width, args.output)

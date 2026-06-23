@@ -2,6 +2,16 @@
 
 本檔記錄 agtLog skill 的所有版本異動。最新在上。
 
+## v1.4.0 — 2026-06-23
+
+新增「對話記錄 整理 / 清理」機制：歸檔黑名單 + 每專案記錄檔 + 全域目錄加檔案大小。
+
+- **每專案記錄檔 `_catalog.json`**：`<archive>/<專案>/` 下一份，記錄曾產生過的 session（manifest：turns / bytes / 摘要 / 時間）＋ `blacklist`。新增共用模組 `scripts/catalog.py`（state 讀寫，原子落盤，純標準庫）。
+- **整理指令 `--scope tidy [--project <名>] [--confirm]`**：比對記錄 vs 磁碟，把「曾產生、現已被手刪」的對話自動拉黑，之後永不重產。觸發詞「整理對話記錄」「清理對話記錄」。單專案候選 > 20 筆且無 `--confirm` → 只回報不寫（防誤拉黑整批）。
+- **重置指令 `--scope reset --project <名>`**：清空指定專案的黑名單 + 殘留記錄 → 下次 init-all 可重產（後悔藥；`--project` 必填防手滑）。
+- **黑名單落實兩處**：`init-all` 產出前跳過黑名單 session 並回報 `blacklisted` 計數、產出後更新 catalog；SessionEnd hook 同步認黑名單 + 維護 catalog。
+- **全域 `index.html` 加檔案大小欄**、排除黑名單 session；摘要沿用首句 user 訊息（維持零 AI token）。
+
 ## v1.3.0 — 2026-06-17
 
 skill 改名 `recall` → `agtLog`。

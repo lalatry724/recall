@@ -2,7 +2,7 @@
 name: agtLog
 description: Restore Claude Code conversation transcripts into human-readable HTML/text — current session or all historical sessions — with three views (full verbatim / simple one-line tools / talk pure conversation), local timestamps, and path highlighting. Equivalent to saving the on-screen conversation 1:1 for review and context.
 userInvocable: true
-triggers: agtLog, save conversation, save transcript, export all sessions, export conversation, dump transcript, recall, /agtLog, /recall
+triggers: agtLog, save conversation, save transcript, export all sessions, export conversation, dump transcript, recall, /agtLog, /recall, 整理對話記錄, 清理對話記錄, tidy archive, reset archive
 pattern: tool-wrapper
 ---
 
@@ -30,7 +30,7 @@ python3 scripts/agtLog.py [options]
 
 | Option | Values (default) | Meaning |
 |--------|------------------|---------|
-| `--scope` | **current** / all / init-all | Current session / all → `./session-export/` / all → `~/.claude/session-archive/<project>/` (+ index) |
+| `--scope` | **current** / all / init-all / tidy / reset | Current / all→`./session-export/` / init-all→archive (+index) / tidy→blacklist deleted / reset→clear a project's records |
 | `--view` | full / simple / **talk** | Verbatim+tools / tools one-liner / pure conversation (default) |
 | `--views` | — | init-all only: comma list overriding conf (e.g. `simple,talk,full`) |
 | `--format` | **html** / txt | Colored HTML by default |
@@ -38,6 +38,8 @@ python3 scripts/agtLog.py [options]
 | `--include-thinking` | off | Include thinking in `full` |
 | `--include-subagents` | off | Include sub-agent transcripts (scope all / init-all) |
 | `--force` | off | init-all: rebuild existing archives (default idempotent skip) |
+| `--project` | — | tidy/reset: limit to one archive project folder (required for reset) |
+| `--confirm` | off | tidy: proceed when blacklist candidates exceed the safety threshold (20) |
 | `--arg-width N` | 80 | Truncate tool args in `simple` |
 | `--max-result-chars N` | 0 | Truncate tool_result in `full` |
 | `--output` / `--output-dir` / `--transcript` / `--cwd` | — | Path overrides |
@@ -62,6 +64,26 @@ To produce **simple / full / all** views: pass `--view simple` or `--view full` 
 ### scope=all vs scope=init-all
 - `all` writes one view to `./session-export/` in the current dir (throwaway export).
 - `init-all` backfills all history into `~/.claude/session-archive/<project>/` (flat, talk by default; `--views` to add more), merged with the auto-archive tree, plus a top-level `index.html`. Multiple views are disambiguated by filename suffix (`<base>.html` / `<base>.simple.html` / `<base>.full.html`). Idempotent; `--force` rebuilds; re-run to refresh.
+
+## Pruning the archive: tidy / reset (blacklist)
+
+Once archives pile up you'll want to delete worthless conversations and have them **stay** deleted. Mechanism:
+
+1. Each archive project folder keeps `_catalog.json` — a record of every session ever produced (turns / bytes / summary / time) plus a `blacklist`.
+2. You manually delete the worthless HTML files from `~/.claude/session-archive/<project>/`.
+3. Run **tidy** ("整理對話記錄"): it compares the catalog against disk, finds sessions whose files are now gone, and blacklists them. `init-all` and the SessionEnd hook then never regenerate them.
+
+```bash
+python3 scripts/agtLog.py --scope tidy                 # all project folders
+python3 scripts/agtLog.py --scope tidy --project <name> # one folder
+python3 scripts/agtLog.py --scope tidy --confirm        # >20 candidates safety override
+python3 scripts/agtLog.py --scope reset --project <name> # undo: clear blacklist → init-all can regenerate
+```
+
+- **Blacklisting only happens on an explicit `tidy`** — `init-all` never auto-blacklists, so moving/renaming the archive folder can't silently nuke everything.
+- **Safety threshold**: if one folder has >20 candidates and you didn't pass `--confirm`, tidy only reports and writes nothing.
+- **reset** is the undo: it clears a project's blacklist (and stale records) so the next `init-all` regenerates. `--project` is required to avoid wiping everything by accident.
+- The global `index.html` excludes blacklisted sessions and shows each session's file size.
 
 ## Architecture: thin wrapper, token-free core
 
