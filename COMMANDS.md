@@ -73,8 +73,12 @@ python scripts/agtLog.py --scope remove --items "<proj>:<stem>,<proj>:<stem>"
 | 想做的事 | 指令 |
 |----------|------|
 | 註冊自動歸檔 hook（Git Bash） | `bash ~/.claude/skills/agtLog/install.sh` |
+| **同步部署版**（`git pull` 後跑，mac/Linux/Git-Bash） | `bash deploy.sh` |
+| **同步部署版**（Windows 原生 PowerShell） | `.\deploy.ps1` |
 | 關閉自動歸檔 | 改 `archive.conf.json` → `"enabled": false` |
 | 不裝 skill 直接跑 | `python ~/.claude/skills/agtLog/scripts/agtLog.py --scope all` |
+
+> **部署版 vs 開發 repo**：`git pull` 只更新開發 repo；Claude Code 與 hook 實際跑的是 `~/.claude/skills/agtLog/`（另一份）。改完 / pull 完跑一次 `deploy.sh`（或 `deploy.ps1`）才會生效。
 
 ## 完成判準
 

@@ -178,6 +178,8 @@ agtLog/
 ├── SKILL.md              skill manifest (how the agent invokes it)
 ├── archive.conf.json     auto-archive config
 ├── install.sh            register hooks into settings.json (backup → idempotent append → verify)
+├── deploy.sh             sync this repo → live skill folder (macOS/Linux/Git Bash)
+├── deploy.ps1            same, Windows-native PowerShell
 ├── scripts/
 │   ├── agtLog.py            single CLI entry point
 │   ├── render_core.py            the one rendering core (single source of truth)
@@ -198,6 +200,12 @@ agtLog/
 ## Changelog
 
 This project follows [Semantic Versioning](https://semver.org/). Newest first. Full history: [`version.md`](version.md).
+
+### 1.5.1 — 2026-06-24 · Deploy scripts (repo → live skill)
+- **The repo and the deployed skill are two separate copies.** `install.sh` only registers hooks into `settings.json` — it never copies files — so `git pull` updates the repo but the deployed skill at `~/.claude/skills/agtLog` stays stale, and Claude Code (plus the SessionEnd/SessionStart hooks) keeps running the old code.
+- **`deploy.sh`** (macOS / Linux / Git Bash) and **`deploy.ps1`** (Windows-native PowerShell) sync the repo into the skill folder: whitelist-copy the `.py` scripts + skill docs (SKILL/COMMANDS/README/version/devlog), `install.sh`, `LICENSE`, `evals`; dev-only files (`.claude/`, `_internal/`, `CLAUDE.md`, …) are never copied.
+- **`archive.conf.json` is copied only if missing** — a user-edited deployed config is never clobbered. Stale `__pycache__` is cleared after copy. Idempotent; `DEST` env var overrides the target.
+- **New routine:** after `git pull`, run `deploy.sh` (or `deploy.ps1`) once and the deployed skill matches the repo.
 
 ### 1.5.0 — 2026-06-23 · Per-row remove button in index.html
 - **`index.html` ✕ button** — every row in the `init-all` index gets a remove button. Clicking it marks the row (dimmed + strikethrough, stored in `localStorage`); a fixed bottom bar counts the marked sessions and builds a copy-paste command. Pure vanilla JS, no dependencies, works from `file://`; clipboard copy with `execCommand` fallback.
@@ -316,6 +324,7 @@ SessionEnd hook **只在 session 結束當下產**，不會自己回掃歷史，
 
 ### 變更紀錄
 採[語意化版號](https://semver.org/)，完整內容見上方 [Changelog](#changelog) 與 [`version.md`](version.md)。
+- **1.5.1（2026-06-24）部署腳本（repo → live skill）**：開發 repo 與部署 skill 是兩份獨立複製，`install.sh` 只註冊 hook 不複製檔案，故 `git pull` 後部署版（Claude Code 與 hook 實際跑的那份）仍是舊的。新增 `deploy.sh`（mac/Linux/Git-Bash）+ `deploy.ps1`（Windows 原生）：白名單複製 .py 與 skill 文件、排除開發專屬檔；`archive.conf.json` 只在缺檔時複製不覆蓋；冪等、`DEST` 可覆寫。SOP：`git pull` 後跑一次 deploy 即同步。
 - **1.5.0（2026-06-23）index.html 每列 remove 鈕**：`init-all` 索引每列加 ✕，按下標記該則（變暗＋刪除線、存 localStorage），底部面板統計待移除數並產出可複製的套用指令；`--scope remove --items proj:stem,...` 把選定 session 移到 `<專案>/_removed/`（封存非刪）並拉黑、重建索引。靜態頁受沙箱限制故採「標記→複製→套用」兩段式，黑名單與 reset 救回沿用 v1.4.0 機制、零新狀態檔。
 - **1.4.0（2026-06-23）歸檔整理（tidy/reset＋黑名單）**：每專案 `_catalog.json`（記錄 turns/bytes/摘要/時間＋blacklist）、新增 `scripts/catalog.py`；`--scope tidy`（整理對話記錄）比對記錄 vs 磁碟把手刪的對話拉黑、>20 筆需 `--confirm`；`--scope reset --project <名>` 解黑重產；init-all 與 hook 認黑名單、全域 index 排除黑名單並顯示檔案大小。
 - **1.2.0（2026-06-17）扁平歸檔、預設 talk**：歸檔結構去掉 view 子資料夾（改 `<專案>/` 直放）、SessionEnd 與 agtLog.py 預設只產 talk（`--view` 預設改 talk、conf `views` 改 `["talk"]`）、多視圖以檔名後綴 `.simple`/`.full` 區分、既有歸檔一次性扁平化並重建 index。

@@ -2,6 +2,15 @@
 
 本檔記錄 agtLog skill 的所有版本異動。最新在上。
 
+## v1.5.1 — 2026-06-24
+
+新增 `deploy.sh` / `deploy.ps1` 雙版本部署腳本：把開發 repo 同步進 live skill 資料夾。
+
+- **問題根因**：開發 repo（`<repo>/`）與部署 skill（`~/.claude/skills/agtLog/`）是**兩份獨立複製**。`install.sh` 只註冊 hook 到 `settings.json`、**不複製檔案**，故 `git pull` 更新 repo 後部署版仍是舊的——Claude Code 與 SessionEnd/SessionStart hook 跑的都是部署版，新功能（如 `remove`/`tidy`）不生效。
+- **`deploy.sh`（mac/Linux/Git-Bash）+ `deploy.ps1`（Windows 原生 PowerShell）**：白名單複製（scripts 的 .py、SKILL/COMMANDS/README/version/devlog、install.sh、LICENSE、evals）；明確排除開發專屬檔（`.claude/`、`_internal/`、`CLAUDE.md`、`userChatLog.md`、`.gemini/`、`.git`、`__pycache__`）。
+- **保護使用者設定**：`archive.conf.json` 只在部署版缺檔時複製，**已存在則保留不覆蓋**（避免洗掉手動改的 `enabled:false` 等）。複製後清部署版 `__pycache__` 避免載到舊 bytecode；冪等可重跑，`DEST` 環境變數可覆寫目標。
+- **新 SOP**：`git pull` 後跑一次 `deploy.sh`（或 `deploy.ps1`）→ 部署版即追到最新。
+
 ## v1.5.0 — 2026-06-23
 
 `index.html` 每列加 remove 鈕：在索引頁直接標記要清掉的對話，套用後封存＋拉黑。
